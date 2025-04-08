@@ -1,0 +1,69 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "20"
+
+      # Backend
+      - name: Install backend dependencies
+        run: |
+          cd blog-backend
+          npm install
+
+      - name: Run backend tests
+        run: |
+          cd blog-backend
+          npm test
+
+      # Frontend
+      - name: Install frontend dependencies
+        run: |
+          cd blog-frontend
+          npm install
+
+      - name: Run frontend tests
+        run: |
+          cd blog-frontend
+          npm test
+
+  docker:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v2
+        with:
+          context: ./blog-backend
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/blog-backend:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v2
+        with:
+          context: ./blog-frontend
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/blog-frontend:latest
